@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
+using UnityEngine.Networking;
 
-public class TankMovement : MonoBehaviour
+public class TankMovement : NetworkBehaviour
 {
-    public int m_PlayerNumber = 1;         
     public float m_Speed = 12f;            
     public float m_TurnSpeed = 180f;       
     public AudioSource m_MovementAudio;    
@@ -10,12 +10,12 @@ public class TankMovement : MonoBehaviour
     public AudioClip m_EngineDriving;      
     public float m_PitchRange = 0.2f;
 
-    private string m_MovementAxisName;     
-    private string m_TurnAxisName;         
+
     private Rigidbody m_Rigidbody;         
     private float m_MovementInputValue;    
     private float m_TurnInputValue;        
     private float m_OriginalPitch;         
+
 
     private void Awake()
     {
@@ -41,17 +41,18 @@ public class TankMovement : MonoBehaviour
 
     private void Start()
     {
-        m_MovementAxisName = "Vertical" + m_PlayerNumber;
-        m_TurnAxisName = "Horizontal" + m_PlayerNumber;
-
         m_OriginalPitch = m_MovementAudio.pitch;
     }
 
+
     private void Update()
     {
-        // Store the player's input and make sure the audio for the engine is playing.
-		m_MovementInputValue = Input.GetAxis(m_MovementAxisName);
-		m_TurnInputValue = Input.GetAxis(m_TurnAxisName);
+        if (isServer)
+        {
+            // For local testing
+            m_MovementInputValue = Input.GetAxis("Vertical");
+            m_TurnInputValue = Input.GetAxis("Horizontal");
+        }
 
 		EngineAudio();
     }
@@ -78,10 +79,11 @@ public class TankMovement : MonoBehaviour
     }
 
 
+    [ServerCallback]
     private void FixedUpdate()
     {
         // Move and turn the tank.
-		Move();
+        Move();
 		Turn();
     }
 
@@ -91,7 +93,9 @@ public class TankMovement : MonoBehaviour
         // Adjust the position of the tank based on the player's input.
 		Vector3 deltaPosition = m_Rigidbody.transform.forward * m_Speed * Time.fixedDeltaTime * m_MovementInputValue;
 
-		m_Rigidbody.MovePosition(m_Rigidbody.position + deltaPosition);
+        // m_Rigidbody.MovePosition(m_Rigidbody.position + deltaPosition);
+        m_Rigidbody.position += deltaPosition;
+        transform.position = m_Rigidbody.position;
     }
 
 
@@ -100,6 +104,8 @@ public class TankMovement : MonoBehaviour
         // Adjust the rotation of the tank based on the player's input.
 		Quaternion deltaRotation = Quaternion.Euler(0, m_TurnSpeed * Time.fixedDeltaTime * m_TurnInputValue, 0);
 
-		m_Rigidbody.MoveRotation(m_Rigidbody.rotation * deltaRotation);
+        // m_Rigidbody.MoveRotation(m_Rigidbody.rotation * deltaRotation);
+        m_Rigidbody.rotation *= deltaRotation;
+        transform.rotation = m_Rigidbody.rotation;
     }
 }

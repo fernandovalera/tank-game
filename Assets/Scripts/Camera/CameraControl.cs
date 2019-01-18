@@ -1,10 +1,12 @@
 ﻿using UnityEngine;
+using UnityEngine.Networking;
 
 public class CameraControl : MonoBehaviour
 {
     public float m_DampTime = 0.2f;                 
     public float m_ScreenEdgeBuffer = 4f;           
-    public float m_MinSize = 6.5f;                  
+    public float m_MinSize = 6.5f;  
+    
     public Transform[] m_Targets; 
 
 
@@ -12,6 +14,11 @@ public class CameraControl : MonoBehaviour
     private float m_ZoomSpeed;                      
     private Vector3 m_MoveVelocity;                 
     private Vector3 m_DesiredPosition;              
+
+    public void SetTargets(Transform[] targets)
+    {
+        m_Targets = targets;
+    }
 
 
     private void Awake()

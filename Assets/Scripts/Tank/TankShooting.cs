@@ -1,10 +1,10 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using UnityEngine.Networking;
 
-public class TankShooting : MonoBehaviour
+public class TankShooting : NetworkBehaviour
 {
-    public int m_PlayerNumber = 1;       
     public Rigidbody m_Shell;            
     public Transform m_FireTransform;    
     public Slider m_AimSlider;           
@@ -32,11 +32,12 @@ public class TankShooting : MonoBehaviour
 
     private void Start()
     {
-        m_FireButton = "Fire" + m_PlayerNumber;
+        m_FireButton = "Fire";
 
         m_ChargeSpeed = (m_MaxLaunchForce - m_MinLaunchForce) / m_MaxChargeTime;
     }
 
+    [ServerCallback]
     private void Update()
     {
         // Track the current state of the fire button and make decisions based on the current launch force.
@@ -72,6 +73,7 @@ public class TankShooting : MonoBehaviour
     {
         // Instantiate and launch the shell.
 		Rigidbody shell = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation);
+        NetworkServer.Spawn(shell.gameObject);
 
 		shell.AddRelativeForce (Vector3.forward * m_CurrentLaunchForce, ForceMode.Impulse);
 

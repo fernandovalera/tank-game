@@ -1,66 +1,184 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 
-[Serializable]
-public class TankManager
+namespace Tanks.TankControllers
 {
-    public Color m_PlayerColor;            
-    public Transform m_SpawnPoint;         
-    [HideInInspector] public int m_PlayerNumber;             
-    [HideInInspector] public string m_ColoredPlayerText;
-    [HideInInspector] public GameObject m_Instance;          
-    [HideInInspector] public int m_Wins;                     
-
-
-    private TankMovement m_Movement;       
-    private TankShooting m_Shooting;
-    private GameObject m_CanvasGameObject;
-
-
-    public void Setup()
+    /// <summary>
+    /// This class is to manage various settings on a tank.
+    /// It works with the GameManager class to control how the tanks behave
+    /// and whether or not players have control of their tank in the
+    /// different phases of the game.
+    /// </summary>
+    [RequireComponent(typeof(TankMovement))]
+    [RequireComponent(typeof(TankShooting))]
+    [RequireComponent(typeof(TankHealth))]
+    public class TankManager : NetworkBehaviour
     {
-        m_Movement = m_Instance.GetComponent<TankMovement>();
-        m_Shooting = m_Instance.GetComponent<TankShooting>();
-        m_CanvasGameObject = m_Instance.GetComponentInChildren<Canvas>().gameObject;
 
-        m_Movement.m_PlayerNumber = m_PlayerNumber;
-        m_Shooting.m_PlayerNumber = m_PlayerNumber;
+        #region Fields
 
-        m_ColoredPlayerText = "<color=#" + ColorUtility.ToHtmlStringRGB(m_PlayerColor) + ">PLAYER " + m_PlayerNumber + "</color>";
+        //Current spawn point used
+        private Transform m_AssignedSpawnPoint;
 
-        MeshRenderer[] renderers = m_Instance.GetComponentsInChildren<MeshRenderer>();
+        //Synced player ID, -1 means it has not changed yet (as the lowest valid player id is 0)
+        [SyncVar(hook = "OnPlayerIdChanged")]
+        protected int m_PlayerId = -1;
 
-        for (int i = 0; i < renderers.Length; i++)
+        //Synced score
+        [SyncVar]
+        protected int m_Wins = 0;
+
+        //Synced rank, used at the end of the game to calculate the player's award
+        [SyncVar(hook = "OnRankChanged")]
+        protected int m_Rank = -1;
+
+        public Color m_PlayerColor;
+        public Transform m_SpawnPoint;
+        [HideInInspector] public string m_ColoredPlayerText;
+
+        private GameObject m_CanvasGameObject;
+
+        #endregion
+
+
+        #region Events
+
+        //Fired when the player's rank has changed
+        public event Action rankChanged;
+
+        #endregion
+
+
+        #region Properties
+
+        public NetworkPlayer player
         {
-            renderers[i].material.color = m_PlayerColor;
+            get;
+            protected set;
         }
-    }
+
+        public TankMovement movement
+        {
+            get;
+            protected set;
+        }
+
+        public TankShooting shooting
+        {
+            get;
+            protected set;
+        }
+
+        public TankHealth health
+        {
+            get;
+            protected set;
+        }
+
+        public int playerNumber
+        {
+            get { return m_PlayerId; }
+        }
+
+        public int wins
+        {
+            get { return m_Wins; }
+        }
+
+        #endregion
 
 
-    public void DisableControl()
-    {
-        m_Movement.enabled = false;
-        m_Shooting.enabled = false;
+        #region Methods
 
-        m_CanvasGameObject.SetActive(false);
-    }
+        public void Setup(NetworkPlayer player)
+        {
+            this.player = player;
+
+            movement = GetComponent<TankMovement>();
+            shooting = GetComponent<TankShooting>();
+            health = GetComponent<TankHealth>();
+
+            m_CanvasGameObject = GetComponentInChildren<Canvas>().gameObject;
+
+            m_ColoredPlayerText = "<color=#" + ColorUtility.ToHtmlStringRGB(m_PlayerColor) + ">PLAYER " + m_PlayerId + "</color>";
+
+            MeshRenderer[] renderers = player.GetComponentsInChildren<MeshRenderer>();
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].material.color = m_PlayerColor;
+            }
+        }
 
 
-    public void EnableControl()
-    {
-        m_Movement.enabled = true;
-        m_Shooting.enabled = true;
+        public void DisableControl()
+        {
+            movement.enabled = false;
+            shooting.enabled = false;
 
-        m_CanvasGameObject.SetActive(true);
-    }
+            m_CanvasGameObject.SetActive(false);
+        }
 
 
-    public void Reset()
-    {
-        m_Instance.transform.position = m_SpawnPoint.position;
-        m_Instance.transform.rotation = m_SpawnPoint.rotation;
+        public void EnableControl()
+        {
+            movement.enabled = true;
+            shooting.enabled = true;
 
-        m_Instance.SetActive(false);
-        m_Instance.SetActive(true);
+            m_CanvasGameObject.SetActive(true);
+        }
+
+
+        public void Reset()
+        {
+            transform.position = m_SpawnPoint.position;
+            transform.rotation = m_SpawnPoint.rotation;
+
+            gameObject.SetActive(false);
+            gameObject.SetActive(true);
+        }
+
+        #region SYNCVAR HOOKS
+
+        private void OnRankChanged(int rank)
+        {
+            this.m_Rank = rank;
+            if (rankChanged != null)
+            {
+                rankChanged();
+            }
+        }
+
+        private void OnPlayerIdChanged(int playerId)
+        {
+            this.m_PlayerId = playerId;
+        }
+
+        #endregion
+
+        #region Networking
+
+        [Server]
+        public void SetPlayerId(int id)
+        {
+            m_PlayerId = id;
+        }
+
+
+        [Server]
+        public void AddWin()
+        {
+            m_Wins++;
+        }
+
+
+
+
+        #endregion
+
+
+        #endregion
     }
 }
